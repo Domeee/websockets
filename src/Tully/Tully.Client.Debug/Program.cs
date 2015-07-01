@@ -8,7 +8,7 @@ namespace Tully.Client.Debug
     {
         private static void Main(string[] args)
         {
-            Connect("localhost", "Hello World!");
+            Connect("192.168.1.68", "Hello World!");
         }
 
         private static void Connect(string server, string message)
@@ -26,8 +26,6 @@ namespace Tully.Client.Debug
                 var data = Encoding.ASCII.GetBytes(message);
 
                 // Get a client stream for reading and writing. 
-                //  Stream stream = client.GetStream();
-
                 var stream = client.GetStream();
 
                 // Send the message to the connected TcpServer. 

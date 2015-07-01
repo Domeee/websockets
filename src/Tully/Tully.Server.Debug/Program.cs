@@ -12,9 +12,11 @@ namespace Tully.Server.Debug
             TcpListener server = null;
             try
             {
-                // Set the TcpListener on port 13000.
+                // Set the TcpListener on port 8080.
                 var port = 8080;
-                var localAddr = IPAddress.Parse("127.0.0.1");
+
+                // Get the ip for the default gateway
+                IPAddress localAddr = IPAddress.Parse("192.168.1.68");
 
                 // TcpListener server = new TcpListener(port);
                 server = new TcpListener(localAddr, port);
@@ -33,13 +35,13 @@ namespace Tully.Server.Debug
 
                     // Perform a blocking call to accept requests.
                     // You could also user server.AcceptSocket() here.
-                    var client = server.AcceptTcpClient();
+                    TcpClient client = server.AcceptTcpClient();
                     Console.WriteLine("Connected!");
 
                     data = null;
 
                     // Get a stream object for reading and writing
-                    var stream = client.GetStream();
+                    NetworkStream stream = client.GetStream();
 
                     int i;
 
@@ -53,7 +55,7 @@ namespace Tully.Server.Debug
                         // Process the data sent by the client.
                         data = data.ToUpper();
 
-                        var msg = Encoding.ASCII.GetBytes(data);
+                        byte[] msg = Encoding.ASCII.GetBytes(data);
 
                         // Send back a response.
                         stream.Write(msg, 0, msg.Length);
@@ -73,7 +75,6 @@ namespace Tully.Server.Debug
                 // Stop listening for new clients.
                 server.Stop();
             }
-
 
             Console.WriteLine("\nHit enter to continue...");
             Console.Read();
