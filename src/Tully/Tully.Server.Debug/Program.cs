@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Tully.Server.Debug
 {
@@ -13,7 +15,7 @@ namespace Tully.Server.Debug
             try
             {
                 // Set the TcpListener on port 8080.
-                var port = 8080;
+                var port = 80;
 
                 // Get the ip for the default gateway
                 IPAddress localAddr = IPAddress.Parse("192.168.1.68");
@@ -23,10 +25,6 @@ namespace Tully.Server.Debug
 
                 // Start listening for client requests.
                 server.Start();
-
-                // Buffer for reading data
-                var bytes = new byte[256];
-                string data = null;
 
                 // Enter the listening loop.
                 while (true)
@@ -38,32 +36,54 @@ namespace Tully.Server.Debug
                     TcpClient client = server.AcceptTcpClient();
                     Console.WriteLine("Connected!");
 
-                    data = null;
-
                     // Get a stream object for reading and writing
                     NetworkStream stream = client.GetStream();
 
-                    int i;
-
-                    // Loop to receive all the data sent by the client.
-                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
+                    while (true)
                     {
-                        // Translate data bytes to a ASCII string.
-                        data = Encoding.ASCII.GetString(bytes, 0, i);
-                        Console.WriteLine("Received: {0}", data);
+                        while (!stream.DataAvailable)
+                        {
+                        }
 
-                        // Process the data sent by the client.
-                        data = data.ToUpper();
+                        var bytes = new byte[client.Available];
+                        stream.Read(bytes, 0, bytes.Length);
 
-                        byte[] msg = Encoding.ASCII.GetBytes(data);
+                        string data = Encoding.UTF8.GetString(bytes);
 
-                        // Send back a response.
-                        stream.Write(msg, 0, msg.Length);
-                        Console.WriteLine("Sent: {0}", data);
+                        if (new Regex("^GET").IsMatch(data))
+                        {
+                            byte[] response =
+                                Encoding.UTF8.GetBytes(
+                                    "HTTP/1.1 101 Switching Protocols" + Environment.NewLine + 
+                                    "Connection: Upgrade" + Environment.NewLine + 
+                                    "Upgrade: websocket" + Environment.NewLine + 
+                                    "Sec-WebSocket-Accept: " + 
+                                    Convert.ToBase64String(
+                                        SHA1.Create()
+                                          .ComputeHash(
+                                              Encoding.UTF8.GetBytes(
+                                                  new Regex("Sec-WebSocket-Key: (.*)").Match(data).Groups[1].Value.Trim(
+                                                      ) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")))
+                                    + Environment.NewLine + Environment.NewLine);
+
+                            stream.Write(response, 0, response.Length);
+                            var msg = Encoding.UTF8.GetBytes("Hello from server");
+                            stream.Write(msg, 0,  msg.Length);
+                        }
+                        else
+                        {
+                            var decoded = new byte[3];
+                            var encoded = new byte[3] { 112, 16, 109 };
+                            var key = new byte[4] { 61, 84, 35, 6 };
+
+                            for (var i = 0; i < encoded.Length; i++)
+                            {
+                                decoded[i] = (byte)(encoded[i] ^ key[i % 4]);
+                            }
+
+                            Console.WriteLine("Data: " + Encoding.UTF8.GetString(decoded));
+                        }
                     }
-
-                    // Shutdown and end connection
-                    client.Close();
                 }
             }
             catch (SocketException e)
