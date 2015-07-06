@@ -8,45 +8,33 @@ namespace Tully.Client.Debug
     {
         private static void Main(string[] args)
         {
-            Connect("192.168.1.68", "Hello World!");
+            Connect("192.168.1.68");
         }
 
-        private static void Connect(string server, string message)
+        private static void Connect(string server)
         {
             try
             {
-                // Create a TcpClient. 
-                // Note, for this client to work you need to have a TcpServer  
-                // connected to the same address as specified by the server, port 
-                // combination.
-                var port = 8080;
+                var port = 80;
+                
+                // This constructor also opens a connection to the specified URI.
                 var client = new TcpClient(server, port);
 
-                // Translate the passed message into ASCII and store it as a Byte array.
-                var data = Encoding.ASCII.GetBytes(message);
-
-                // Get a client stream for reading and writing. 
+                // Client handshake
+                var message = new StringBuilder();
+                message.AppendLine("GET / HTTP/1.1");
+                message.AppendLine("Host: 192.168.1.68");
+                message.AppendLine("Upgrade: websocket");
+                message.AppendLine("Connection: Upgrade");
+                message.AppendLine("Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==");
+                message.AppendLine("Sec-WebSocket-Version: 13");
+                message.AppendLine();
+                
+                var data = Encoding.UTF8.GetBytes(message.ToString());
                 var stream = client.GetStream();
-
-                // Send the message to the connected TcpServer. 
                 stream.Write(data, 0, data.Length);
-
                 Console.WriteLine("Sent: {0}", message);
-
-                // Receive the TcpServer.response. 
-
-                // Buffer to store the response bytes.
-                data = new byte[256];
-
-                // String to store the response ASCII representation.
-                var responseData = string.Empty;
-
-                // Read the first batch of the TcpServer response bytes.
-                var bytes = stream.Read(data, 0, data.Length);
-                responseData = Encoding.ASCII.GetString(data, 0, bytes);
-                Console.WriteLine("Received: {0}", responseData);
-
-                // Close everything.
+                
                 stream.Close();
                 client.Close();
             }
