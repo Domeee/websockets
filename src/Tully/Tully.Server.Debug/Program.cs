@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -33,10 +35,10 @@ namespace Tully.Server.Debug
                         {
                         }
 
-                        var bytes = new byte[client.Available];
-                        stream.Read(bytes, 0, bytes.Length);
+                        var frameBytes = new byte[client.Available];
+                        stream.Read(frameBytes, 0, frameBytes.Length);
 
-                        string request = Encoding.UTF8.GetString(bytes);
+                        string request = Encoding.UTF8.GetString(frameBytes);
 
                         if (new Regex("^GET").IsMatch(request))
                         {
@@ -53,23 +55,15 @@ namespace Tully.Server.Debug
                                               new Regex("Sec-WebSocket-Key: (.*)").Match(request).Groups[1].Value.Trim()
                                               + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))));
                             response.AppendLine();
-                            response.AppendLine();
 
                             var data = Encoding.UTF8.GetBytes(response.ToString());
                             stream.Write(data, 0, data.Length);
                         }
                         else
                         {
-                            var decoded = new byte[3];
-                            var encoded = new byte[3] { 112, 16, 109 };
-                            var key = new byte[4] { 61, 84, 35, 6 };
-
-                            for (var i = 0; i < encoded.Length; i++)
-                            {
-                                decoded[i] = (byte)(encoded[i] ^ key[i % 4]);
-                            }
-
-                            Console.WriteLine("Data: " + Encoding.UTF8.GetString(decoded));
+                            var frame = new Frame(frameBytes);
+                            var result = Encoding.UTF8.GetString(frame.ApplicationData);
+                            Console.WriteLine("Data: " + result);
                         }
                     }
                 }
@@ -86,6 +80,11 @@ namespace Tully.Server.Debug
 
             Console.WriteLine("\nHit enter to continue...");
             Console.Read();
+        }
+
+        static bool IsSet(byte data, byte bitNumber)
+        {
+            return (data & (1 << bitNumber - 1)) != 0;
         }
     }
 }
