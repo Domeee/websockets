@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace Tully.Server.Debug
+namespace Tully
 {
     /// <summary>
     /// WebSocket frame implementation according to http://tools.ietf.org/html/rfc6455#section-5.2
