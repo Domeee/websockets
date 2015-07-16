@@ -2,7 +2,7 @@
 
 namespace Tully.Client.Debug
 {
-    internal class Program
+    public class Program
     {
         private static void Main(string[] args)
         {
@@ -10,9 +10,6 @@ namespace Tully.Client.Debug
             {
                 client.Opened += (sender, eventArgs) => Console.WriteLine("Connection open!");
                 client.Open();
-
-                Console.WriteLine("Press Enter to send MDN");
-                Console.ReadKey();
                 client.SendMdnString();
             }
 

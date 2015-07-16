@@ -4,17 +4,23 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Tully
 {
+    /// <summary>
+    /// WebSocket server implementation according to RFC 6455. See <a href="http://tools.ietf.org/html/rfc6455">RFC 6455</a>
+    /// </summary>
     public class WebSocketServer : IDisposable
     {
+        private const string WebSocketServerMagicString = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
         private readonly TcpListener _server;
+
+        private bool _isStarted;
 
         public WebSocketServer(string localaddr, ushort port)
         {
-            var ipaddr = IPAddress.Parse(localaddr);
+            IPAddress ipaddr = IPAddress.Parse(localaddr);
             _server = new TcpListener(ipaddr, port);
         }
 
@@ -29,6 +35,13 @@ namespace Tully
 
         public void Start()
         {
+            if (_isStarted)
+            {
+                throw new InvalidOperationException("The WebSocket server was already started.");
+            }
+
+            _isStarted = true;
+
             try
             {
                 _server.Start();
@@ -36,10 +49,7 @@ namespace Tully
 
                 while (true)
                 {
-                    Debug.Write("Waiting for a connection...");
-
                     TcpClient client = _server.AcceptTcpClient();
-                    Debug.WriteLine("Connected!");
                     NetworkStream stream = client.GetStream();
 
                     while (true)
@@ -53,24 +63,11 @@ namespace Tully
 
                         string request = Encoding.UTF8.GetString(frameBytes);
 
-                        if (new Regex("^GET").IsMatch(request))
+                        if (NetworkPackageSniffer.IsOpeningHandshake(request))
                         {
-                            var response = new StringBuilder();
-                            response.AppendLine("HTTP/1.1 101 Switching Protocols");
-                            response.AppendLine("Connection: Upgrade");
-                            response.AppendLine("Upgrade: websocket");
-                            response.AppendLine(
-                                "Sec-WebSocket-Accept: "
-                                + Convert.ToBase64String(
-                                    SHA1.Create()
-                                      .ComputeHash(
-                                          Encoding.UTF8.GetBytes(
-                                              new Regex("Sec-WebSocket-Key: (.*)").Match(request).Groups[1].Value.Trim()
-                                              + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))));
-                            response.AppendLine();
-
-                            byte[] data = Encoding.UTF8.GetBytes(response.ToString());
-                            stream.Write(data, 0, data.Length);
+                            string key = CalculateWebSocketAccept(request);
+                            byte[] response = NetworkMessage.GetClosingHandshake(key);
+                            stream.Write(response, 0, response.Length);
                         }
                         else
                         {
@@ -87,7 +84,7 @@ namespace Tully
             }
             finally
             {
-                // Stop listening for new clients.
+                _isStarted = false;
                 _server.Stop();
             }
         }
@@ -112,6 +109,15 @@ namespace Tully
             {
                 Stopped(this, e);
             }
+        }
+
+        private string CalculateWebSocketAccept(string openingHandshake)
+        {
+            string key = NetworkPackageSniffer.GetWebSocketKey(openingHandshake);
+            SHA1 sha1Encrypter = SHA1.Create();
+            byte[] acceptKeyBytes = Encoding.UTF8.GetBytes(key + WebSocketServerMagicString);
+            byte[] hash = sha1Encrypter.ComputeHash(acceptKeyBytes);
+            return Convert.ToBase64String(hash);
         }
     }
 }

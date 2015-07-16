@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Tully
 {
@@ -14,19 +13,31 @@ namespace Tully
 
         private NetworkStream _stream;
 
-        public event EventHandler Opened;
-
         public WebSocket(string serverAddr, ushort port)
         {
             _client = new TcpClient(serverAddr, port);
         }
 
+        public void Dispose()
+        {
+            if (_stream != Stream.Null)
+            {
+                _stream.Close();
+            }
+
+            _client.Close();
+        }
+
+        public event EventHandler Opened;
+
         public void Open()
         {
             _stream = _client.GetStream();
-            OnOpen(EventArgs.Empty);
 
             Handshake();
+
+            // Handshake completed
+            OnOpen(EventArgs.Empty);
         }
 
         private void Handshake()
@@ -40,10 +51,26 @@ namespace Tully
             message.AppendLine("Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==");
             message.AppendLine("Sec-WebSocket-Version: 13");
             message.AppendLine();
-
-            var data = Encoding.UTF8.GetBytes(message.ToString());
+            byte[] data = Encoding.UTF8.GetBytes(message.ToString());
             _stream.Write(data, 0, data.Length);
             Debug.WriteLine(string.Format("Sent: {0}", message));
+
+            // Wait for connection upgrade
+            var connectionUpgraded = false;
+            while (!connectionUpgraded)
+            {
+                while (!_stream.DataAvailable)
+                {
+                }
+
+                var frameBytes = new byte[_client.Available];
+                _stream.Read(frameBytes, 0, frameBytes.Length);
+
+                string request = Encoding.UTF8.GetString(frameBytes);
+
+                connectionUpgraded = new Regex("Connection: Upgrade").Match(request).Success
+                                     && new Regex("Upgrade: websocket").Match(request).Success;
+            }
         }
 
         public void SendMdnString()
@@ -54,10 +81,10 @@ namespace Tully
             var maskingKey = new byte[4];
             var rnd = new Random();
             rnd.NextBytes(maskingKey);
-            var decoded = Encoding.UTF8.GetBytes("MDN");
+            byte[] decoded = Encoding.UTF8.GetBytes("MDN");
             var encoded = new byte[decoded.Length];
 
-            for (int i = 0; i < encoded.Length; i++)
+            for (var i = 0; i < encoded.Length; i++)
             {
                 encoded[i] = (byte)(decoded[i] ^ maskingKey[i % 4]);
             }
@@ -74,16 +101,6 @@ namespace Tully
             frame[8] = encoded[2];
 
             _stream.Write(frame, 0, frame.Length);
-        }
-
-        public void Dispose()
-        {
-            if (_stream != Stream.Null)
-            {
-                _stream.Close();
-            }
-
-            _client.Close();
         }
 
         protected virtual void OnOpen(EventArgs e)

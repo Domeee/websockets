@@ -40,6 +40,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Frame.cs" />
+    <Compile Include="NetworkMessage.cs" />
+    <Compile Include="NetworkPackageSniffer.cs" />
     <Compile Include="WebSocket.cs" />
     <Compile Include="WebSocketServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

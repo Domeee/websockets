@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 
 namespace Tully
 {
@@ -26,7 +25,7 @@ namespace Tully
     /// |                     Payload Data continued ...                |
     /// +---------------------------------------------------------------+
     /// </remarks>
-    public class Frame
+    internal class Frame
     {
         // FIN bit at position 8 in the byte
         private const byte FinBit = 8;
@@ -40,7 +39,7 @@ namespace Tully
         // The WebSocket frame as raw byte array
         private readonly byte[] _frameBytes;
 
-        public Frame(byte[] frameBytes)
+        internal Frame(byte[] frameBytes)
         {
             _frameBytes = frameBytes;
             IsFIN = GetBit(FinBit, _frameBytes[0]);
@@ -51,17 +50,17 @@ namespace Tully
             ApplicationData = GetApplicationData();
         }
 
-        public byte[] ApplicationData { get; private set; }
+        internal byte[] ApplicationData { get; private set; }
 
-        public bool IsFIN { get; private set; }
+        internal bool IsFIN { get; private set; }
 
-        public bool IsMasked { get; private set; }
+        internal bool IsMasked { get; private set; }
 
-        public byte[] MaskingKey { get; private set; }
+        internal byte[] MaskingKey { get; private set; }
 
-        public uint OpCode { get; private set; }
+        internal uint OpCode { get; private set; }
 
-        public uint PayloadLength { get; private set; }
+        internal uint PayloadLength { get; private set; }
 
         private bool GetBit(byte bitNumber, byte data)
         {
@@ -103,7 +102,7 @@ namespace Tully
 
         private byte[] GetMaskingKey()
         {
-            byte[] copy = new byte[4];
+            var copy = new byte[4];
             Buffer.BlockCopy(_frameBytes, 2, copy, 0, 4);
             return copy;
         }
@@ -115,7 +114,7 @@ namespace Tully
 
             int encodedPointer = encoded.Offset;
 
-            for (int i = 0; i < encoded.Count; i++)
+            for (var i = 0; i < encoded.Count; i++)
             {
                 decoded[i] = (byte)(encoded.Array[encodedPointer++] ^ MaskingKey[i % 4]);
             }

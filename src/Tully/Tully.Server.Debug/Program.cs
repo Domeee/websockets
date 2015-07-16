@@ -2,7 +2,7 @@
 
 namespace Tully.Server.Debug
 {
-    internal class MyTcpListener
+    public class Program
     {
         public static void Main()
         {

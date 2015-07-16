@@ -8,8 +8,12 @@
     <script type="text/javascript">
         function WebSocketTest() {
             if ("WebSocket" in window) {
+
                 alert("WebSocket is supported by your browser!");
-                var ws = new WebSocket("ws://192.168.1.68:80");
+
+                // TODO: Update host
+                var host = "ws://192.168.1.68:80";
+                var ws = new WebSocket(host);
 
                 ws.onopen = function() {
                     alert('Connection is open');
@@ -31,9 +35,7 @@
 </head>
 
 <body>
-<div id="sse">
     <a href="javascript:WebSocketTest()">Run WebSocket</a>
-</div>
 </body>
 
 </html>
