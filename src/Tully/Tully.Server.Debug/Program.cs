@@ -9,10 +9,27 @@ namespace Tully.Server.Debug
             var server = new WebSocketServer("192.168.1.68", 80);
             server.Started += (sender, args) => Console.WriteLine("WebSocket server started!");
             server.Stopped += (sender, args) => Console.WriteLine("WebSocket server stopped!");
-            server.Start();
 
-            Console.WriteLine("Hit enter to continue...");
-            Console.Read();
+            Console.WriteLine("Tully WebSocket server at your command.");
+            var exit = false;
+
+            while (!exit)
+            {
+                var cmd = Console.ReadLine();
+
+                switch (cmd)
+                {
+                    case "/start":
+                        server.Start();
+                        break;
+                    case "/stop":
+                        server.Stop();
+                        break;
+                    default:
+                        Console.WriteLine("Unknown command " + cmd);
+                        break;
+                }
+            }
         }
     }
 }

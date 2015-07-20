@@ -20,7 +20,7 @@ namespace Tully
 
         private readonly List<TcpClient> _clients = new List<TcpClient>();
 
-        private bool _isStarted;
+        private bool _started;
 
         public WebSocketServer(string localaddr, ushort port)
         {
@@ -39,19 +39,26 @@ namespace Tully
 
         public void Start()
         {
-            if (_isStarted)
+            if (_started)
             {
                 throw new InvalidOperationException("The WebSocket server was already started.");
             }
 
             _server.Start();
-            _isStarted = true;
+            _started = true;
             OnStarted(EventArgs.Empty);
             ListenLoop();
         }
 
         public void Stop()
         {
+            _started = false;
+
+            foreach (var client in _clients)
+            {
+                client.Close();
+            }
+
             _server.Stop();
             OnStopped(EventArgs.Empty);
         }
@@ -83,12 +90,11 @@ namespace Tully
 
         private void ListenLoop()
         {
-            while (true)
+            while (_started)
             {
                 TcpClient client = _server.AcceptTcpClient();
                 new Thread(() => HandleClient(client)).Start();
                 _clients.Add(client);
-                Debug.WriteLine("Current clients count: " + _clients.Count);
             }
         }
 
