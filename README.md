@@ -18,6 +18,9 @@ using (var client = new WebSocket("192.168.1.68", 80))
 	client.SendMdnString();
 }
 ```
+# Features
+According to RFC 6455
+
 # Motivation
 
 # Credits

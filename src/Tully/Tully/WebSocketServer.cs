@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace Tully
 {
@@ -15,6 +17,8 @@ namespace Tully
         private const string WebSocketServerMagicString = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
         private readonly TcpListener _server;
+
+        private readonly List<TcpClient> _clients = new List<TcpClient>();
 
         private bool _isStarted;
 
@@ -40,53 +44,10 @@ namespace Tully
                 throw new InvalidOperationException("The WebSocket server was already started.");
             }
 
+            _server.Start();
             _isStarted = true;
-
-            try
-            {
-                _server.Start();
-                OnStarted(EventArgs.Empty);
-
-                while (true)
-                {
-                    TcpClient client = _server.AcceptTcpClient();
-                    NetworkStream stream = client.GetStream();
-
-                    while (true)
-                    {
-                        while (!stream.DataAvailable)
-                        {
-                        }
-
-                        var frameBytes = new byte[client.Available];
-                        stream.Read(frameBytes, 0, frameBytes.Length);
-
-                        string request = Encoding.UTF8.GetString(frameBytes);
-
-                        if (NetworkPackageSniffer.IsOpeningHandshake(request))
-                        {
-                            string key = CalculateWebSocketAccept(request);
-                            byte[] response = NetworkMessage.GetClosingHandshake(key);
-                            stream.Write(response, 0, response.Length);
-                        }
-                        else
-                        {
-                            var frame = new Frame(frameBytes);
-                            string result = Encoding.UTF8.GetString(frame.ApplicationData);
-                            Debug.WriteLine("Data: " + result);
-                        }
-                    }
-                }
-            }
-            catch (SocketException e)
-            {
-                Debug.WriteLine(string.Format("SocketException: {0}", e));
-            }
-            finally
-            {
-                _isStarted = false;
-                _server.Stop();
-            }
+            OnStarted(EventArgs.Empty);
+            ListenLoop();
         }
 
         public void Stop()
@@ -118,6 +79,47 @@ namespace Tully
             byte[] acceptKeyBytes = Encoding.UTF8.GetBytes(key + WebSocketServerMagicString);
             byte[] hash = sha1Encrypter.ComputeHash(acceptKeyBytes);
             return Convert.ToBase64String(hash);
+        }
+
+        private void ListenLoop()
+        {
+            while (true)
+            {
+                TcpClient client = _server.AcceptTcpClient();
+                new Thread(() => HandleClient(client)).Start();
+                _clients.Add(client);
+                Debug.WriteLine("Current clients count: " + _clients.Count);
+            }
+        }
+
+        private void HandleClient(TcpClient client)
+        {
+            NetworkStream stream = client.GetStream();
+
+            while (true)
+            {
+                while (!stream.DataAvailable)
+                {
+                }
+
+                var frameBytes = new byte[client.Available];
+                stream.Read(frameBytes, 0, frameBytes.Length);
+
+                string request = Encoding.UTF8.GetString(frameBytes);
+
+                if (NetworkPackageSniffer.IsOpeningHandshake(request))
+                {
+                    string key = CalculateWebSocketAccept(request);
+                    byte[] response = NetworkMessage.GetClosingHandshake(key);
+                    stream.Write(response, 0, response.Length);
+                }
+                else
+                {
+                    var frame = new Frame(frameBytes);
+                    string result = Encoding.UTF8.GetString(frame.ApplicationData);
+                    Debug.WriteLine("Data: " + result);
+                }
+            }
         }
     }
 }
