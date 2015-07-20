@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 
 namespace Tully
 {
@@ -25,7 +26,7 @@ namespace Tully
     /// |                     Payload Data continued ...                |
     /// +---------------------------------------------------------------+
     /// </remarks>
-    internal class Frame
+    internal class WebSocketFrame
     {
         // FIN bit at position 8 in the byte
         private const byte FinBit = 8;
@@ -39,7 +40,7 @@ namespace Tully
         // The WebSocket frame as raw byte array
         private readonly byte[] _frameBytes;
 
-        internal Frame(byte[] frameBytes)
+        internal WebSocketFrame(byte[] frameBytes)
         {
             _frameBytes = frameBytes;
             IsFIN = GetBit(FinBit, _frameBytes[0]);
@@ -79,7 +80,7 @@ namespace Tully
         {
             if (!IsMasked)
             {
-                // TODO: Throw protocol error (http://tools.ietf.org/html/rfc6455#section-7.4.1)
+                throw new ProtocolException("Payload has to be masked.", WebSocketStatusCode.ProtocolError);
             }
 
             // Payload length (7bit) minus Mask bit (MSB -> 2^7)
@@ -89,7 +90,7 @@ namespace Tully
             {
                 if (length == 126)
                 {
-                    throw new NotImplementedException();
+                    
                 }
                 if (length == 127)
                 {

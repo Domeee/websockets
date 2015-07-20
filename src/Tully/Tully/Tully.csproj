@@ -39,10 +39,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Frame.cs" />
+    <Compile Include="ConcurrentList.cs" />
+    <Compile Include="WebSocketStatusCode.cs" />
+    <Compile Include="ProtocolException.cs" />
+    <Compile Include="WebSocketFrame.cs" />
     <Compile Include="NetworkMessage.cs" />
     <Compile Include="NetworkPackageSniffer.cs" />
     <Compile Include="WebSocket.cs" />
+    <Compile Include="WebSocketFrameParser.cs" />
     <Compile Include="WebSocketServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

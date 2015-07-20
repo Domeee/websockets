@@ -6,15 +6,34 @@ namespace Tully.Client.Debug
     {
         private static void Main(string[] args)
         {
-            using (var client = new WebSocket("192.168.1.68", 80))
+            var client = new WebSocket("192.168.1.68", 80);
+            client.Opened += (sender, eventArgs) => Console.WriteLine("Connection open!");
+
+            var exit = false;
+
+            while (!exit)
             {
-                client.Opened += (sender, eventArgs) => Console.WriteLine("Connection open!");
-                client.Open();
-                client.SendMdnString();
+                var cmd = Console.ReadLine();
+
+                switch (cmd)
+                {
+                    case "/exit":
+                        exit = true;
+                        break;
+                    case "/open":
+                        client.Open();
+                        break;
+                    case "/send":
+                        client.SendMdnString();
+                        break;
+                    default:
+                        Console.WriteLine("Unknown command " + cmd);
+                        break;
+                }
             }
 
-            Console.WriteLine("Press Enter to continue...");
-            Console.Read();
+            Console.WriteLine("Press any key to exit");
+            Console.ReadKey();
         }
     }
 }

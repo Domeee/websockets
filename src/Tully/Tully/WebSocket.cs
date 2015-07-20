@@ -75,13 +75,43 @@ namespace Tully
 
         public void SendMdnString()
         {
-            // Client single message
             byte byte1 = 129;
             byte byte2 = 131;
             var maskingKey = new byte[4];
             var rnd = new Random();
             rnd.NextBytes(maskingKey);
             byte[] decoded = Encoding.UTF8.GetBytes("MDN");
+            var encoded = new byte[decoded.Length];
+
+            for (var i = 0; i < encoded.Length; i++)
+            {
+                encoded[i] = (byte)(decoded[i] ^ maskingKey[i % 4]);
+            }
+
+            var frame = new byte[9];
+            frame[0] = byte1;
+            frame[1] = byte2;
+            frame[2] = maskingKey[0];
+            frame[3] = maskingKey[1];
+            frame[4] = maskingKey[2];
+            frame[5] = maskingKey[3];
+            frame[6] = encoded[0];
+            frame[7] = encoded[1];
+            frame[8] = encoded[2];
+
+            _stream.Write(frame, 0, frame.Length);
+        }
+
+        public void Send126String()
+        {
+            var message =
+                "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliq";
+            byte byte1 = 129;
+            byte byte2 = 254;
+            var maskingKey = new byte[4];
+            var rnd = new Random();
+            rnd.NextBytes(maskingKey);
+            byte[] decoded = Encoding.UTF8.GetBytes(message);
             var encoded = new byte[decoded.Length];
 
             for (var i = 0; i < encoded.Length; i++)

@@ -7,10 +7,10 @@ namespace Tully.Server.Debug
         public static void Main()
         {
             var server = new WebSocketServer("192.168.1.68", 80);
-            server.Started += (sender, args) => Console.WriteLine("WebSocket server started!");
-            server.Stopped += (sender, args) => Console.WriteLine("WebSocket server stopped!");
+            server.Started += (sender, args) => Console.WriteLine("Server started!");
+            server.Stopped += (sender, args) => Console.WriteLine("Server stopped!");
 
-            Console.WriteLine("Tully WebSocket server at your command.");
+            Console.WriteLine("Tully WebSocket server at your command");
             var exit = false;
 
             while (!exit)
@@ -19,6 +19,9 @@ namespace Tully.Server.Debug
 
                 switch (cmd)
                 {
+                    case "/exit":
+                        exit = true;
+                        break;
                     case "/start":
                         server.Start();
                         break;
@@ -30,6 +33,9 @@ namespace Tully.Server.Debug
                         break;
                 }
             }
+
+            Console.WriteLine("Press any key to exit");
+            Console.ReadKey();
         }
     }
 }

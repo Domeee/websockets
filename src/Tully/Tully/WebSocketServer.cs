@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 
 namespace Tully
 {
@@ -16,9 +14,13 @@ namespace Tully
     {
         private const string WebSocketServerMagicString = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-        private readonly TcpListener _server;
+        private const ushort BufferSize = 1024;
 
-        private readonly List<TcpClient> _clients = new List<TcpClient>();
+        private readonly byte[] _buffer = new byte[BufferSize];
+
+        private readonly ConcurrentList<TcpClient> _clients = new ConcurrentList<TcpClient>();
+
+        private readonly TcpListener _server;
 
         private bool _started;
 
@@ -47,14 +49,15 @@ namespace Tully
             _server.Start();
             _started = true;
             OnStarted(EventArgs.Empty);
-            ListenLoop();
+
+            _server.BeginAcceptTcpClient(OnAcceptClient, _server);
         }
 
         public void Stop()
         {
             _started = false;
 
-            foreach (var client in _clients)
+            foreach (TcpClient client in _clients)
             {
                 client.Close();
             }
@@ -88,43 +91,42 @@ namespace Tully
             return Convert.ToBase64String(hash);
         }
 
-        private void ListenLoop()
+        private void OnAcceptClient(IAsyncResult ar)
         {
+            var listener = (TcpListener)ar.AsyncState;
+            TcpClient client = listener.EndAcceptTcpClient(ar);
+            client.ReceiveBufferSize = BufferSize;
+            client.SendBufferSize = BufferSize;
+            _clients.Add(client);
+            NetworkStream stream = client.GetStream();
+
             while (_started)
             {
-                TcpClient client = _server.AcceptTcpClient();
-                new Thread(() => HandleClient(client)).Start();
-                _clients.Add(client);
+                if (stream.DataAvailable)
+                {
+                    stream.BeginRead(_buffer, 0, BufferSize, OnRead, stream);
+                }
             }
         }
 
-        private void HandleClient(TcpClient client)
+        private void OnRead(IAsyncResult ar)
         {
-            NetworkStream stream = client.GetStream();
+            var stream = (NetworkStream)ar.AsyncState;
+            int read = stream.EndRead(ar);
 
-            while (true)
+            string request = Encoding.UTF8.GetString(_buffer, 0, read);
+
+            if (NetworkPackageSniffer.IsOpeningHandshake(request))
             {
-                while (!stream.DataAvailable)
-                {
-                }
-
-                var frameBytes = new byte[client.Available];
-                stream.Read(frameBytes, 0, frameBytes.Length);
-
-                string request = Encoding.UTF8.GetString(frameBytes);
-
-                if (NetworkPackageSniffer.IsOpeningHandshake(request))
-                {
-                    string key = CalculateWebSocketAccept(request);
-                    byte[] response = NetworkMessage.GetClosingHandshake(key);
-                    stream.Write(response, 0, response.Length);
-                }
-                else
-                {
-                    var frame = new Frame(frameBytes);
-                    string result = Encoding.UTF8.GetString(frame.ApplicationData);
-                    Debug.WriteLine("Data: " + result);
-                }
+                string key = CalculateWebSocketAccept(request);
+                byte[] response = NetworkMessage.GetClosingHandshake(key);
+                stream.Write(response, 0, response.Length);
+            }
+            else
+            {
+                var frame = new WebSocketFrame(_buffer);
+                string result = Encoding.UTF8.GetString(frame.ApplicationData);
+                Debug.WriteLine("Data: " + result);
             }
         }
     }
