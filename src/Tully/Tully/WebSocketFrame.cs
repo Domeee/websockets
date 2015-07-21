@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 
 namespace Tully
 {
@@ -43,7 +42,7 @@ namespace Tully
         internal WebSocketFrame(byte[] frameBytes)
         {
             _frameBytes = frameBytes;
-            IsFIN = GetBit(FinBit, _frameBytes[0]);
+            IsFin = GetBit(FinBit, _frameBytes[0]);
             IsMasked = GetBit(MaskBit, frameBytes[1]);
             OpCode = (uint)GetInt(OpCodeBytes, frameBytes[0]);
             PayloadLength = GetPayloadLength();
@@ -53,15 +52,15 @@ namespace Tully
 
         internal byte[] ApplicationData { get; private set; }
 
-        internal bool IsFIN { get; private set; }
+        private bool IsFin { get; set; }
 
-        internal bool IsMasked { get; private set; }
+        private bool IsMasked { get; }
 
-        internal byte[] MaskingKey { get; private set; }
+        private byte[] MaskingKey { get; }
 
-        internal uint OpCode { get; private set; }
+        private uint OpCode { get; set; }
 
-        internal uint PayloadLength { get; private set; }
+        private uint PayloadLength { get; }
 
         private bool GetBit(byte bitNumber, byte data)
         {
@@ -86,16 +85,15 @@ namespace Tully
             // Payload length (7bit) minus Mask bit (MSB -> 2^7)
             uint length = (uint)_frameBytes[1] - 128;
 
-            if (length > -1)
+            if (length == 126)
             {
-                if (length == 126)
-                {
-                    
-                }
-                if (length == 127)
-                {
-                    throw new NotImplementedException();
-                }
+                // TODO: Implement
+                throw new ProtocolException(WebSocketStatusCode.MessageTooBig);
+            }
+            if (length == 127)
+            {
+                // TODO: Implement
+                throw new ProtocolException(WebSocketStatusCode.MessageTooBig);
             }
 
             return length;
@@ -104,6 +102,8 @@ namespace Tully
         private byte[] GetMaskingKey()
         {
             var copy = new byte[4];
+
+            // TODO: The masking key srcOffset is currently hardcoded to 2 => payload length not yet fully implemented
             Buffer.BlockCopy(_frameBytes, 2, copy, 0, 4);
             return copy;
         }
@@ -111,7 +111,9 @@ namespace Tully
         private byte[] GetApplicationData()
         {
             var decoded = new byte[PayloadLength];
-            var encoded = new ArraySegment<byte>(_frameBytes, 6, 3);
+
+            // TODO: The ArraySegment offSet is currently hardcoded to 6 => payload length not yet fully implemented
+            var encoded = new ArraySegment<byte>(_frameBytes, 6, (int)PayloadLength);
 
             int encodedPointer = encoded.Offset;
 

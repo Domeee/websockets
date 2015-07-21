@@ -6,6 +6,8 @@
 
         EndpointGoingAway = 1001,
 
-        ProtocolError = 1002
+        ProtocolError = 1002,
+
+        MessageTooBig = 1009
     }
 }

@@ -68,18 +68,12 @@ namespace Tully
 
         protected virtual void OnStarted(EventArgs e)
         {
-            if (Started != null)
-            {
-                Started(this, e);
-            }
+            Started?.Invoke(this, e);
         }
 
         protected virtual void OnStopped(EventArgs e)
         {
-            if (Stopped != null)
-            {
-                Stopped(this, e);
-            }
+            Stopped?.Invoke(this, e);
         }
 
         private string CalculateWebSocketAccept(string openingHandshake)
