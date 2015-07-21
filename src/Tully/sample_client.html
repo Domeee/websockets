@@ -5,38 +5,49 @@
 
     <title>Tully WebSocket javascript client</title>
 
-    <script type="text/javascript">
-        function WebSocketTest() {
-            if ("WebSocket" in window) {
-
-                alert("WebSocket is supported by your browser!");
-
-                // TODO: Update host
-                var host = "ws://192.168.1.68:80";
-                var ws = new WebSocket(host);
-
-                ws.onopen = function() {
-                    alert('Connection is open');
-                    //ws.send("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliq");
-                    ws.send("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna alis");
-                    alert("Sent: Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna ali");
-                };
-
-                ws.onclose = function() {
-                    alert("Connection is closed");
-                };
-
-            } else {
-                // The browser doesn't support WebSocket
-                alert("WebSocket NOT supported by your Browser!");
-            }
-        }
-    </script>
-
 </head>
 
 <body>
-    <a href="javascript:WebSocketTest()">Run WebSocket</a>
+<div><a href="javascript:sendString()">send string</a></div>
+<div><a href="javascript:sendFloat()">send float</a></div>
+
+<script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+
+<script type="text/javascript">
+    var ws;
+
+    $(function() {
+        var host = "ws://192.168.1.68:80";
+        ws = new WebSocket(host);
+
+        ws.onopen = function() {
+            console.debug("connection opened");
+        };
+
+        ws.onclose = function() {
+            console.debug("Connection is closed");
+        };
+    });
+
+    function sendString() {
+        ws.send("Hello world!");
+    };
+
+    function sendFloat() {
+        var x = -0.823758588894084;
+        var y = -10.0125899212182;
+
+        var xFloat = x.toPrecision(7);
+        var yFloat = y.toPrecision(7);
+
+        var floatArr = new Float32Array(2);
+        floatArr[0] = xFloat;
+        floatArr[1] = yFloat;
+
+        ws.send(floatArr.buffer);
+    };
+</script>
+
 </body>
 
 </html>

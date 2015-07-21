@@ -120,7 +120,26 @@ namespace Tully
             {
                 var frame = new WebSocketFrame(_buffer);
                 string result = Encoding.UTF8.GetString(frame.ApplicationData);
-                Debug.WriteLine("Data: " + result);
+                Debug.WriteLine(result);
+
+                // TODO: Implement broadcast based on message type
+                //var response = new byte[2 + result.Length];
+                //var byte1 = 129;
+                //int byte2 = result.Length;
+
+                //response[0] = (byte)byte1;
+                //response[1] = (byte)byte2;
+
+                //for (var i = 0; i < result.Length; i++)
+                //{
+                //    response[i + 2] = (byte)result[i];
+                //}
+
+                //foreach (TcpClient client in _clients)
+                //{
+                //    NetworkStream clientStream = client.GetStream();
+                //    clientStream.Write(response, 0, response.Length);
+                //}
             }
         }
     }

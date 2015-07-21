@@ -1,9 +1,8 @@
 ﻿using System.Text.RegularExpressions;
-using System.Xml;
 
 namespace Tully
 {
-    internal class NetworkPackageSniffer
+    internal static class NetworkPackageSniffer
     {
         private const string GetRequestPattern = "^GET";
 
@@ -15,17 +14,25 @@ namespace Tully
 
         private const string WebSocketKeyPattern = "Sec-WebSocket-Key: (.*)";
 
-        private static readonly Regex GetRequestRegex = new Regex(GetRequestPattern, RegexOptions.Compiled);
+        private static readonly Regex GetRequestRegex = new Regex(
+            GetRequestPattern,
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly Regex ConnectionUpgradeRegex = new Regex(
             ConnectionUpgradePattern,
-            RegexOptions.Compiled);
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private static readonly Regex UpgradeWebSocketRegex = new Regex(UpgradeWebSocketPattern, RegexOptions.Compiled);
+        private static readonly Regex UpgradeWebSocketRegex = new Regex(
+            UpgradeWebSocketPattern,
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private static readonly Regex SwitchingProtocolsRegex = new Regex(SwitichingProtocolsPattern, RegexOptions.Compiled);
+        private static readonly Regex SwitchingProtocolsRegex = new Regex(
+            SwitichingProtocolsPattern,
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private static readonly Regex WebSocketKeyRegex = new Regex(WebSocketKeyPattern, RegexOptions.Compiled);
+        private static readonly Regex WebSocketKeyRegex = new Regex(
+            WebSocketKeyPattern,
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         internal static bool IsOpeningHandshake(string packet)
         {
@@ -41,9 +48,9 @@ namespace Tully
 
         internal static string GetWebSocketKey(string packet)
         {
-            var key = string.Empty;
-            var match = WebSocketKeyRegex.Match(packet);
-            
+            string key = string.Empty;
+            Match match = WebSocketKeyRegex.Match(packet);
+
             if (match.Success)
             {
                 key = match.Groups[1].Value.Trim();

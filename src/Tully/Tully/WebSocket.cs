@@ -135,10 +135,7 @@ namespace Tully
 
         protected virtual void OnOpen(EventArgs e)
         {
-            if (Opened != null)
-            {
-                Opened(this, e);
-            }
+            Opened?.Invoke(this, e);
         }
     }
 }
