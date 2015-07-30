@@ -6,7 +6,7 @@ namespace Tully.Server.Debug
     {
         public static void Main()
         {
-            var server = new WebSocketServer("192.168.1.68", 80);
+            var server = new WebSocketServer("127.0.0.1", 8080);
             server.Started += (sender, args) => Console.WriteLine("Server started!");
             server.Stopped += (sender, args) => Console.WriteLine("Server stopped!");
 

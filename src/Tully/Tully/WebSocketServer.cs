@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace Tully
 {
@@ -16,23 +18,23 @@ namespace Tully
 
         private const ushort BufferSize = 1024;
 
+        private const byte StartedState = 0;
+
+        private const byte StoppedState = 1;
+
         private readonly byte[] _buffer = new byte[BufferSize];
 
-        private readonly ConcurrentList<TcpClient> _clients = new ConcurrentList<TcpClient>();
+        private readonly ConcurrentDictionary<string, TcpClient> _clients =
+            new ConcurrentDictionary<string, TcpClient>();
 
         private readonly TcpListener _server;
 
-        private bool _started;
+        private byte _state = StoppedState;
 
         public WebSocketServer(string localaddr, ushort port)
         {
             IPAddress ipaddr = IPAddress.Parse(localaddr);
             _server = new TcpListener(ipaddr, port);
-        }
-
-        public void Dispose()
-        {
-            throw new NotImplementedException();
         }
 
         public event EventHandler Started;
@@ -41,28 +43,30 @@ namespace Tully
 
         public void Start()
         {
-            if (_started)
+            if (_state != StoppedState)
             {
                 throw new InvalidOperationException("The WebSocket server was already started.");
             }
 
             _server.Start();
-            _started = true;
+            new Thread(Listen).Start();
+            _state = StartedState;
             OnStarted(EventArgs.Empty);
-
-            _server.BeginAcceptTcpClient(OnAcceptClient, _server);
         }
 
         public void Stop()
         {
-            _started = false;
+            _state = StoppedState;
 
-            foreach (TcpClient client in _clients)
+            foreach (KeyValuePair<string, TcpClient> kvp in _clients)
             {
+                var client = kvp.Value;
+                SendClosingHandshake(client.GetStream());
                 client.Close();
             }
 
             _server.Stop();
+            _clients.RemoveAll();
             OnStopped(EventArgs.Empty);
         }
 
@@ -76,6 +80,33 @@ namespace Tully
             Stopped?.Invoke(this, e);
         }
 
+        private void Listen()
+        {
+            while (_state == StartedState)
+            {
+                try
+                {
+                    TcpClient client = _server.AcceptTcpClient();
+                    new Thread(() => HandleClient(client)).Start();
+                }
+                catch (SocketException sex)
+                {
+                    if (sex.ErrorCode == 10004)
+                    {
+                        Debug.WriteLine("Server stopped");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
+            }
+        }
+
         private string CalculateWebSocketAccept(string openingHandshake)
         {
             string key = NetworkPackageSniffer.GetWebSocketKey(openingHandshake);
@@ -85,27 +116,24 @@ namespace Tully
             return Convert.ToBase64String(hash);
         }
 
-        private void OnAcceptClient(IAsyncResult ar)
+        private void HandleClient(TcpClient client)
         {
-            var listener = (TcpListener)ar.AsyncState;
-            TcpClient client = listener.EndAcceptTcpClient(ar);
-            client.ReceiveBufferSize = BufferSize;
-            client.SendBufferSize = BufferSize;
-            _clients.Add(client);
+            _clients.Add(client.Client.RemoteEndPoint.ToString(), client);
             NetworkStream stream = client.GetStream();
 
-            while (_started)
+            while (client.Connected && _state == StartedState)
             {
                 if (stream.DataAvailable)
                 {
-                    stream.BeginRead(_buffer, 0, BufferSize, OnRead, stream);
+                    stream.BeginRead(_buffer, 0, BufferSize, OnRead, client);
                 }
             }
         }
 
         private void OnRead(IAsyncResult ar)
         {
-            var stream = (NetworkStream)ar.AsyncState;
+            var client = (TcpClient)ar.AsyncState;
+            var stream = client.GetStream();
             int read = stream.EndRead(ar);
 
             string request = Encoding.UTF8.GetString(_buffer, 0, read);
@@ -119,28 +147,74 @@ namespace Tully
             else
             {
                 var frame = new WebSocketFrame(_buffer);
-                string result = Encoding.UTF8.GetString(frame.ApplicationData);
+                if (!frame.IsMasked)
+                {
+                    throw new ProtocolException("Payload has to be masked.", WebSocketStatusCode.ProtocolError);
+                }
+
+                object result = null;
+
+                if (frame.OpCode == 1)
+                {
+                    result = Encoding.UTF8.GetString(frame.ApplicationData);
+                }
+                else if (frame.OpCode == 2)
+                {
+                    result = BitConverter.ToSingle(frame.ApplicationData, 0);
+                }
+                else if (frame.OpCode == 8)
+                {
+                    // Closing handshake
+                    SendClosingHandshake(stream);
+
+                    // Cleanup
+                    _clients.Remove(client.Client.RemoteEndPoint.ToString());
+                    client.Close();
+                }
+
                 Debug.WriteLine(result);
 
-                // TODO: Implement broadcast based on message type
-                //var response = new byte[2 + result.Length];
-                //var byte1 = 129;
-                //int byte2 = result.Length;
+                var response = new byte[2 + frame.ApplicationData.Length];
+                int byte1 = frame.OpCode == 1 ? 129 : 130;
+                int byte2 = frame.ApplicationData.Length;
 
-                //response[0] = (byte)byte1;
-                //response[1] = (byte)byte2;
+                response[0] = (byte)byte1;
+                response[1] = (byte)byte2;
 
-                //for (var i = 0; i < result.Length; i++)
-                //{
-                //    response[i + 2] = (byte)result[i];
-                //}
+                for (var i = 0; i < frame.ApplicationData.Length; i++)
+                {
+                    response[i + 2] = frame.ApplicationData[i];
+                }
 
-                //foreach (TcpClient client in _clients)
-                //{
-                //    NetworkStream clientStream = client.GetStream();
-                //    clientStream.Write(response, 0, response.Length);
-                //}
+                foreach (KeyValuePair<string, TcpClient> kvp in _clients)
+                {
+                    TcpClient c = kvp.Value;
+
+                    if (client.Client.RemoteEndPoint.ToString() == c.Client.RemoteEndPoint.ToString())
+                    {
+                        continue;
+                    }
+
+                    NetworkStream clientStream = c.GetStream();
+                    clientStream.Write(response, 0, response.Length);
+                }
             }
         }
+
+        private void SendClosingHandshake(NetworkStream stream)
+        {
+            var response = new byte[1];
+            response[0] = 136;
+            stream.Write(response, 0, response.Length);
+        }
+
+        #region IDisposable Members
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion
     }
 }

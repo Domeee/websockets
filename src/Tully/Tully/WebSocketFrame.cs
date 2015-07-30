@@ -46,7 +46,11 @@ namespace Tully
             IsMasked = GetBit(MaskBit, frameBytes[1]);
             OpCode = (uint)GetInt(OpCodeBytes, frameBytes[0]);
             PayloadLength = GetPayloadLength();
-            MaskingKey = GetMaskingKey();
+            if (IsMasked)
+            {
+                MaskingKey = GetMaskingKey();
+            }
+
             ApplicationData = GetApplicationData();
         }
 
@@ -54,11 +58,11 @@ namespace Tully
 
         private bool IsFin { get; set; }
 
-        private bool IsMasked { get; }
+        internal bool IsMasked { get; }
 
         private byte[] MaskingKey { get; }
 
-        private uint OpCode { get; set; }
+        public uint OpCode { get; set; }
 
         private uint PayloadLength { get; }
 
@@ -77,13 +81,8 @@ namespace Tully
         /// </summary>
         private uint GetPayloadLength()
         {
-            if (!IsMasked)
-            {
-                throw new ProtocolException("Payload has to be masked.", WebSocketStatusCode.ProtocolError);
-            }
-
             // Payload length (7bit) minus Mask bit (MSB -> 2^7)
-            uint length = (uint)_frameBytes[1] - 128;
+            uint length = IsMasked ? (uint)_frameBytes[1] - 128 : _frameBytes[1];
 
             if (length == 126)
             {
@@ -110,16 +109,22 @@ namespace Tully
 
         private byte[] GetApplicationData()
         {
-            var decoded = new byte[PayloadLength];
-
             // TODO: The ArraySegment offSet is currently hardcoded to 6 => payload length not yet fully implemented
             var encoded = new ArraySegment<byte>(_frameBytes, 6, (int)PayloadLength);
+            var decoded = new byte[PayloadLength];
 
-            int encodedPointer = encoded.Offset;
-
-            for (var i = 0; i < encoded.Count; i++)
+            if (IsMasked)
             {
-                decoded[i] = (byte)(encoded.Array[encodedPointer++] ^ MaskingKey[i % 4]);
+                int encodedPointer = encoded.Offset;
+
+                for (var i = 0; i < encoded.Count; i++)
+                {
+                    decoded[i] = (byte)(encoded.Array[encodedPointer++] ^ MaskingKey[i % 4]);
+                }
+            }
+            else
+            {
+                Buffer.BlockCopy(_frameBytes, 2, decoded, 0, (int)PayloadLength);
             }
 
             return decoded;

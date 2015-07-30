@@ -6,8 +6,10 @@ namespace Tully.Client.Debug
     {
         private static void Main(string[] args)
         {
-            var client = new WebSocket("192.168.1.68", 80);
+            var client = new WebSocket("127.0.0.1", 8080);
             client.Opened += (sender, eventArgs) => Console.WriteLine("Connection open!");
+            client.Closed += (sender, eventArgs) => Console.WriteLine("Connection closed");
+            client.MessageReceived += (sender, eventArgs) => Console.WriteLine(((WebSocketEventArgs)eventArgs).Data);
 
             var exit = false;
 
@@ -17,6 +19,9 @@ namespace Tully.Client.Debug
 
                 switch (cmd)
                 {
+                    case "/close":
+                        client.Close();
+                        break;
                     case "/exit":
                         exit = true;
                         break;

@@ -39,7 +39,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ConcurrentList.cs" />
+    <Compile Include="ConcurrentDictionary.cs" />
+    <Compile Include="WebSocketEventArgs.cs" />
     <Compile Include="WebSocketStatusCode.cs" />
     <Compile Include="ProtocolException.cs" />
     <Compile Include="WebSocketFrame.cs" />

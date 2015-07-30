@@ -8,24 +8,38 @@
 </head>
 
 <body>
-<div><a href="javascript:sendString()">send string</a></div>
-<div><a href="javascript:sendFloat()">send float</a></div>
+<div>
+    <a href="javascript:sendString()">send string</a>
+</div>
+<div>
+    <a href="javascript:sendFloat()">send float</a>
+</div>
+<div>
+    <a href="javascript:closeConnection()">close connection</a>
+</div>
+<div>
+    <a href="javascript:openConnection()">open connection</a>
+</div>
 
 <script src="https://code.jquery.com/jquery-2.1.4.js"></script>
 
 <script type="text/javascript">
     var ws;
+    var host = "ws://127.0.1:8080";
 
     $(function() {
-        var host = "ws://192.168.1.68:80";
         ws = new WebSocket(host);
 
-        ws.onopen = function() {
+        ws.onopen = function () {
             console.debug("connection opened");
         };
 
-        ws.onclose = function() {
+        ws.onclose = function () {
             console.debug("Connection is closed");
+        };
+
+        ws.onmessage = function (e) {
+            alert("From server: " + e.data);
         };
     });
 
@@ -46,6 +60,15 @@
 
         ws.send(floatArr.buffer);
     };
+
+    function closeConnection() {
+        ws.close();
+    };
+
+    function openConnection() {
+        ws = new WebSocket(host);
+    };
+
 </script>
 
 </body>
