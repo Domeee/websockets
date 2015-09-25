@@ -203,16 +203,9 @@ namespace Tully
                     }
                 }
             }
-            catch (ProtocolException pox)
-            {
-                SendClosingHandshake(stream, WebSocketStatusCode.ProtocolError);
-            }
             catch (Exception ex)
             {
                 SendClosingHandshake(stream, WebSocketStatusCode.ProtocolError);
-            }
-            finally
-            {
                 _clients.Remove(client.Client.RemoteEndPoint.ToString());
                 client.Close();
             }

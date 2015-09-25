@@ -12,6 +12,7 @@ namespace Tully.Server.Debug
 
             Console.WriteLine("Tully WebSocket server at your command");
             var exit = false;
+            server.Start();
 
             while (!exit)
             {

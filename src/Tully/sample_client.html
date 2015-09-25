@@ -39,7 +39,11 @@
         };
 
         ws.onmessage = function (e) {
-            alert("From server: " + e.data);
+            console.debug("From server: " + e.data);
+        };
+
+        ws.onerror = function(e) {
+            console.debug("Error: " + e.data);
         };
     });
 
