@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -138,73 +139,99 @@ namespace Tully
 
             string request = Encoding.UTF8.GetString(_buffer, 0, read);
 
-            if (NetworkPackageSniffer.IsOpeningHandshake(request))
+            try
             {
-                string key = CalculateWebSocketAccept(request);
-                byte[] response = NetworkMessage.GetClosingHandshake(key);
-                stream.Write(response, 0, response.Length);
-            }
-            else
-            {
-                var frame = new WebSocketFrame(_buffer);
-                if (!frame.IsMasked)
+                if (NetworkPackageSniffer.IsOpeningHandshake(request))
                 {
-                    throw new ProtocolException("Payload has to be masked.", WebSocketStatusCode.ProtocolError);
+                    string key = CalculateWebSocketAccept(request);
+                    byte[] response = NetworkMessage.GetClosingHandshake(key);
+                    stream.Write(response, 0, response.Length);
                 }
-
-                object result = null;
-
-                if (frame.OpCode == 1)
+                else
                 {
-                    result = Encoding.UTF8.GetString(frame.ApplicationData);
-                }
-                else if (frame.OpCode == 2)
-                {
-                    result = BitConverter.ToSingle(frame.ApplicationData, 0);
-                }
-                else if (frame.OpCode == 8)
-                {
-                    // Closing handshake
-                    SendClosingHandshake(stream);
-
-                    // Cleanup
-                    _clients.Remove(client.Client.RemoteEndPoint.ToString());
-                    client.Close();
-                }
-
-                Debug.WriteLine(result);
-
-                var response = new byte[2 + frame.ApplicationData.Length];
-                int byte1 = frame.OpCode == 1 ? 129 : 130;
-                int byte2 = frame.ApplicationData.Length;
-
-                response[0] = (byte)byte1;
-                response[1] = (byte)byte2;
-
-                for (var i = 0; i < frame.ApplicationData.Length; i++)
-                {
-                    response[i + 2] = frame.ApplicationData[i];
-                }
-
-                foreach (KeyValuePair<string, TcpClient> kvp in _clients)
-                {
-                    TcpClient c = kvp.Value;
-
-                    if (client.Client.RemoteEndPoint.ToString() == c.Client.RemoteEndPoint.ToString())
+                    var frame = new WebSocketFrame(_buffer);
+                    if (!frame.IsMasked)
                     {
-                        continue;
+                        throw new ProtocolException("Payload has to be masked.", WebSocketStatusCode.ProtocolError);
                     }
 
-                    NetworkStream clientStream = c.GetStream();
-                    clientStream.Write(response, 0, response.Length);
+                    object result = null;
+
+                    if (frame.OpCode == 1)
+                    {
+                        result = Encoding.UTF8.GetString(frame.ApplicationData);
+                    }
+                    else if (frame.OpCode == 2)
+                    {
+                        result = BitConverter.ToSingle(frame.ApplicationData, 0);
+                    }
+                    else if (frame.OpCode == 8)
+                    {
+                        // Closing handshake
+                        SendClosingHandshake(stream);
+
+                        // Cleanup
+                        _clients.Remove(client.Client.RemoteEndPoint.ToString());
+                        client.Close();
+                    }
+
+                    Debug.WriteLine(result);
+
+                    var response = new byte[2 + frame.ApplicationData.Length];
+                    int byte1 = frame.OpCode == 1 ? 129 : 130;
+                    int byte2 = frame.ApplicationData.Length;
+
+                    response[0] = (byte) byte1;
+                    response[1] = (byte) byte2;
+
+                    for (var i = 0; i < frame.ApplicationData.Length; i++)
+                    {
+                        response[i + 2] = frame.ApplicationData[i];
+                    }
+
+                    foreach (KeyValuePair<string, TcpClient> kvp in _clients)
+                    {
+                        TcpClient c = kvp.Value;
+
+                        if (client.Client.RemoteEndPoint.ToString() == c.Client.RemoteEndPoint.ToString())
+                        {
+                            continue;
+                        }
+
+                        NetworkStream clientStream = c.GetStream();
+                        clientStream.Write(response, 0, response.Length);
+                    }
                 }
+            }
+            catch (ProtocolException pox)
+            {
+                SendClosingHandshake(stream, WebSocketStatusCode.ProtocolError);
+            }
+            catch (Exception ex)
+            {
+                SendClosingHandshake(stream, WebSocketStatusCode.ProtocolError);
+            }
+            finally
+            {
+                _clients.Remove(client.Client.RemoteEndPoint.ToString());
+                client.Close();
             }
         }
 
-        private void SendClosingHandshake(NetworkStream stream)
+        private void SendClosingHandshake(NetworkStream stream, WebSocketStatusCode statusCode = WebSocketStatusCode.Closure)
         {
-            var response = new byte[1];
+            var response = new byte[4];
             response[0] = 136;
+
+            if (statusCode == WebSocketStatusCode.ProtocolError)
+            {
+                response[1] = 8;
+                // status code 1002 over 2 bytes
+                response[2] = 3;
+                response[3] = 234;
+            }
+
+            
             stream.Write(response, 0, response.Length);
         }
 
